@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SC Weather Station</title>
+  <link rel="stylesheet" href="css/utils.css">
+  <link rel="stylesheet" href="css/index.css">
+  <link rel="stylesheet" href="css/bootstrap-icons/bootstrap-icons.min.css">
+  <link rel="shortcut icon" href="favicon.svg" type="image/x-icon">
+  <script type="module">
+    import { ElementShifter } from "./js/shifter.js";
+    import { setup } from "./js/utils.js";
+
+    const DEFAULTS = {
+      baseURL: "https://data.sensor.community/airrohr/v1/sensor",
+      customDustURL: "", // "http://localhost:8000/api/sensors/values?sensor=SDS011"
+      customEnvironURL: "", // "http://localhost:8000/api/sensors/values?sensor=BME280&parameter!=pressure at sea level"
+      dustSensorId: "",
+      environSensorId: "",
+      movement: "normal",
+    }
+
+    const MOVEMENT_MAPPING = {
+      small: 1,
+      normal: 2,
+      large: 3,
+    }
+
+    setup({
+      // data
+      now: new Date(),
+      lock: null, // wakeLock
+      isFullscreen: document.fullscreen,
+      mouseupOutside: false,
+      data: JSON.parse(localStorage.getItem("dustData")) || {},
+      errors: false,
+
+      settings: JSON.parse(localStorage.getItem("userSettings")) || { ...DEFAULTS },
+
+      // computed
+      get clock() {
+        return this.now.toLocaleTimeString('pl', { timeStyle: 'short' });
+      },
+      get date() {
+        return this.now.toLocaleDateString('en-us', { 
+          weekday: 'short', month: 'short', day: 'numeric' 
+        });
+      },
+      get settingsValid() {
+        return Boolean(
+          (this.settings.dustSensorId && this.settings.environSensorId) || 
+          (this.settings.customDustURL && this.settings.customEnvironURL)
+        )
+      },
+      // methods
+      async toggleFullscreen() {
+        if (!document.fullscreenElement) {
+          await document.documentElement.requestFullscreen();
+          this.isFullscreen = true;
+        } else if (document.exitFullscreen) {
+          await document.exitFullscreen();
+          this.isFullscreen = false;
+        }
+      },
+      async toggleWakeLock() {
+        if (this.lock)
+          await this.lock.release();
+        else
+          this.lock = await navigator.wakeLock.request("screen");
+        this.lock?.addEventListener("release", () => this.lock = null);
+      },
+      getMaxOffset(baseOffset) {
+        return baseOffset && MOVEMENT_MAPPING[this.settings.movement] * baseOffset;
+      },
+      openSettingsDialog() {
+        const dialog = this.$refs.dialog;
+        dialog.showModal();
+        dialog.classList.add('visible');
+      },
+      closeSettingsDialog() {
+        this.$refs.dialog.classList.remove('visible');
+      },
+      resetSettings() {
+        this.settings = JSON.parse(localStorage.getItem("userSettings")) || {...DEFAULTS};
+      },
+      updateSettings() {
+        localStorage.setItem("userSettings", JSON.stringify(this.settings));
+        this.fetchSensorsData(true);
+        this.closeSettingsDialog();
+      },
+      async fetchSensorsData(force = false) {
+        const cachedData = JSON.parse(localStorage.getItem("dustData"));
+        const lessThan5min = cachedData && (Date.now() - cachedData._timestamp < 5 * 60 * 1000);
+        if (
+          !force && (
+            this.$refs.dialog.open || 
+            !this.settingsValid || 
+            (cachedData && lessThan5min)
+          )
+        ) return;
+
+        const url1 = this.settings.customDustURL ||
+         `${this.settings.baseURL}/${this.settings.dustSensorId}/`;
+        const url2 = this.settings.customEnvironURL ||
+          `${this.settings.baseURL}/${this.settings.environSensorId}/`;
+
+        try {
+          const dustData = (await fetch(url1).then(r => r.json()))[0];
+          const environData = (await fetch(url2).then(r => r.json()))[0];
+          dustData.sensordatavalues.sort((a, b) => a.parameter?.localeCompare(b.parameter) || 0);
+
+          this.data = {
+            pm25: dustData.sensordatavalues[1].value,
+            pm10: dustData.sensordatavalues[0].value,
+            temp: environData.sensordatavalues[0].value,
+            //pres: environData.sensordatavalues[1].value,
+            hum: environData.sensordatavalues[2].value,
+            fetchDate: new Date().toLocaleString('pl'),
+            _timestamp: Date.now(),
+          }
+          localStorage.setItem("dustData", JSON.stringify(this.data));
+        } catch (error) {
+          console.error(error);
+          this.errors = true;
+        }
+      },
+      isOutsideDialog(e) {
+        const dialogDimensions = this.$refs.dialog.getBoundingClientRect();
+        return Boolean(
+          e.clientX < dialogDimensions.left ||
+          e.clientX > dialogDimensions.right ||
+          e.clientY < dialogDimensions.top ||
+          e.clientY > dialogDimensions.bottom
+        )
+      },
+      onBackdropClick(e) {
+        if (this.isOutsideDialog(e) && this.mouseupOutside) {
+          this.closeSettingsDialog();
+        }
+      },
+      initShifter() {
+        document.querySelectorAll(".shift").forEach((el) => {
+          new ElementShifter(
+            el, 
+            this.getMaxOffset(el.dataset.shiftX), 
+            this.getMaxOffset(el.dataset.shiftY)
+          );
+        })
+      },
+      updateState() {
+        this.now = new Date();
+        this.isFullscreen = document.fullscreen;
+      },
+
+      // lifecycle
+      init() {
+        this.initShifter();
+        this.fetchSensorsData();
+        setInterval(() => this.updateState(), 500);
+        setInterval(() => this.fetchSensorsData(), 10 * 60 * 1000);
+      }
+    });
+  </script>
+  <script src="js/alpine.min.js" defer></script>
+</head>
+<body x-data="app">
+  <!-- Data -->
+  <div class="container d-flex flex-column justify-center" style="height: 100%">
+    <div class="controls shift" data-shift-x="25">
+      <button class="btn-icon" @click="toggleFullscreen">
+        <i :class="`bi bi-fullscreen${isFullscreen ? '-exit' : ''}`"></i>
+      </button>
+      <button class="btn-icon" @click="toggleWakeLock">
+        <i :class="`bi bi-clock${!!lock ? '-fill' : ''}`"></i>
+      </button>
+      <button class="btn-icon" @click="fetchSensorsData(true)">
+        <i class="bi bi-arrow-clockwise"></i>
+      </button>
+      <button class="btn-icon" @click="openSettingsDialog">
+        <i class="bi bi-gear"></i>
+      </button>
+    </div>
+    <div class="row align-center mb-5">
+      <div class="col">
+        <div 
+          class="clock-wrapper shift" 
+          data-shift-x="15"
+          data-shift-y="25" 
+          style="min-height: 30vh;"
+        >
+          <span x-text="clock" class="clock">--:--:--</span>
+          <div x-text="date" id="clock-date"></div>
+        </div>
+      </div>
+      <div class="col">
+        <template x-if="!settingsValid">
+          <div style="text-align: right;">
+            <p>No sensors found. Please set sensors IDs in settings.</p>
+            <button class="btn outlined btn-icon" @click="openSettingsDialog">
+              <i class="bi bi-gear"></i> settings
+            </button>
+          </div>
+        </template>
+        <template x-if="settingsValid">
+          <div
+            class="sensors-data shift" 
+            data-shift-x="5"
+            data-shift-y="25"
+          >
+            <table style="width: 100%;">
+              <tr>
+                <td>PM 2.5:</td>
+                <td><span x-text="data.pm25 || '--'"></span> μg/m³</td>
+              </tr>
+              <tr>
+                <td>PM 10:</td>
+                <td><span x-text="data.pm10 || '--'"></span> μg/m³</td>
+              </tr>
+              <tr>
+                <td>Temperature:</td>
+                <td><span x-text="data.temp || '--'"></span> °C</td>
+              </tr>
+              <tr>
+                <td>Humidity:</td>
+                <td><span x-text="data.hum || '--'"></span> %</td>
+              </tr>
+            </table>
+            <div class="ml-1" style="font-size: medium;">
+              Last refresh: 
+              <span x-text="data.fetchDate || 'Never'"></span>
+              <template x-if="errors"><b> (Failed)</b></template>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </div>
+  <!-- Settings -->
+  <dialog 
+    x-ref="dialog"
+    @cancel.prevent="closeSettingsDialog()"
+    @transitionend="if (!$el.classList.contains('visible')) $el.close()"
+    @mousedown="mouseupOutside = isOutsideDialog($event)"
+    @mouseup="onBackdropClick"
+  >
+    <div class="dialog-content">
+      <div class="dialog-header">Settings</div>
+      <div class="dialog-text mb-5">
+        <p>Data fetching and OLED burning prevention settings.</p>
+      </div>
+      <div class="row">
+        <div class="col">
+          <div class="material-textfield dense my-3 mx-1">
+            <input placeholder=" " type="text" x-model="settings.dustSensorId">
+            <label>Dust sensor ID</label>
+          </div>
+        </div>
+        <div class="col">
+          <div class="material-textfield dense my-3 mx-1">
+            <input placeholder=" " type="text" x-model="settings.environSensorId">
+            <label>Environment sensor ID</label>
+          </div>
+        </div>
+      </div>
+      <div class="material-textfield dense my-3 mx-1">
+        <input placeholder=" " type="text" x-model="settings.customDustURL">
+        <label>Dust custom URL</label>
+      </div>
+      <div class="material-textfield dense my-4 mx-1">
+        <input placeholder=" " type="text" x-model="settings.customEnvironURL">
+        <label>Environment custom URL</label>
+      </div>
+      <p>OLED movement distance:</p>
+      <div class="material-radio-group d-flex flex-row justify-space-around">
+        <label class="material-radio mr-3">
+          <input type="radio" x-model="settings.movement" value="small">
+          <span class="selection-control"></span>
+          Small
+        </label>
+        <label class="material-radio mr-3">
+          <input type="radio" x-model="settings.movement" value="normal">
+          <span class="selection-control"></span>
+          Normal
+        </label>
+        <label class="material-radio">
+          <input type="radio" x-model="settings.movement" value="large">
+          <span class="selection-control"></span>
+          Large
+        </label>
+      </div>
+    </div>
+    <div class="dialog-footer">
+      <button class="btn btn-icon" @click="resetSettings">
+        <i class="bi bi-x-lg"></i> reset
+      </button>
+      <button class="btn btn-icon" @click="updateSettings">
+        <i class="bi bi-check-lg"></i> ok
+      </button>
+    </div>
+  </dialog>
+</body>
+</html>
