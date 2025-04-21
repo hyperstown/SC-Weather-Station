@@ -22,7 +22,7 @@ Represented by those icons:
 
 Currently it is necessary to set either ID of both dust sensor (SDS011) **and** environment sensor (BME280) or URLs to dust and environment API.
 
-To get ID of a sensor can be obtained from https://maps.sensor.community \
+The ID of a sensor can be obtained from https://maps.sensor.community \
 Select sensor you want to monitor and copy it's ID **WITHOUT HASH**
 
 <img src="assets/sensor1.png" alt="sensor1" width="400"/>
@@ -32,7 +32,7 @@ By default PM2.5 is shown on the map:
 
 ![type1](assets/type1.png)
 
-To get ID of environment sensor switch this menu to temperature, humidity or pressure.
+To get ID of environment sensor, switch this menu to temperature, humidity or pressure.
 
 ![type2](assets/type2.png)
 
