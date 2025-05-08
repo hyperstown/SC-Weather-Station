@@ -120,6 +120,7 @@
             _timestamp: Date.now(),
           }
           localStorage.setItem("dustData", JSON.stringify(this.data));
+          this.errors = false;
         } catch (error) {
           console.error(error);
           this.errors = true;
@@ -193,7 +194,11 @@
           <div x-text="date" id="clock-date"></div>
         </div>
       </div>
-      <div class="col">
+      <div 
+        class="col shift"
+        data-shift-x="5"
+        data-shift-y="25"
+      >
         <template x-if="!settingsValid">
           <div style="text-align: right;">
             <p>No sensors found. Please set sensors IDs in settings.</p>
@@ -203,11 +208,7 @@
           </div>
         </template>
         <template x-if="settingsValid">
-          <div
-            class="sensors-data shift" 
-            data-shift-x="5"
-            data-shift-y="25"
-          >
+          <div class="sensors-data">
             <table style="width: 100%;">
               <tr>
                 <td>PM 2.5:</td>
