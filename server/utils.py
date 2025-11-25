@@ -1,13 +1,14 @@
 import unicodedata
+from decimal import Decimal, ROUND_HALF_UP
 
 def extract_numbers(value):
-    if str(value).strip().startswith('--'):
-        raise ValueError("Empty data")
+    clear_value = unicodedata.normalize("NFKD", value)\
+        .encode("ascii", "ignore")\
+        .decode('ascii').split(" ")[0]
     try:
-        return float(
-            unicodedata.normalize("NFKD", value)
-            .encode("ascii", "ignore")
-            .decode('ascii').split(" ")[0]
+        return str(
+            Decimal(clear_value)
+            .quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
         )
     except:
         return value
