@@ -34,6 +34,7 @@
       isFullscreen: document.fullscreen,
       mouseupOutside: false,
       data: JSON.parse(localStorage.getItem("dustData")) || {},
+      loading: false,
       errors: false,
 
       settings: JSON.parse(localStorage.getItem("userSettings")) || { ...DEFAULTS },
@@ -90,6 +91,8 @@
         this.closeSettingsDialog();
       },
       async fetchSensorsData(force = false) {
+        if (this.loading) return;
+
         const cachedData = JSON.parse(localStorage.getItem("dustData"));
         const lessThan5min = cachedData && (Date.now() - cachedData._timestamp < 5 * 60 * 1000);
         if (
@@ -104,6 +107,8 @@
          `${this.settings.baseURL}/${this.settings.dustSensorId}/`;
         const url2 = this.settings.customEnvironURL ||
           `${this.settings.baseURL}/${this.settings.environSensorId}/`;
+
+        this.loading = true;
 
         try {
           const dustData = (await fetch(url1).then(r => r.json()))[0];
@@ -124,6 +129,8 @@
         } catch (error) {
           console.error(error);
           this.errors = true;
+        } finally {
+          this.loading = false;
         }
       },
       isOutsideDialog(e) {
@@ -176,7 +183,7 @@
         <i :class="`bi bi-clock${!!lock ? '-fill' : ''}`"></i>
       </button>
       <button class="btn-icon" @click="fetchSensorsData(true)">
-        <i class="bi bi-arrow-clockwise"></i>
+        <i :class="`bi bi-arrow-clockwise ${!!loading ? 'loading' : ''}`"></i>
       </button>
       <button class="btn-icon" @click="openSettingsDialog">
         <i class="bi bi-gear"></i>
@@ -231,6 +238,9 @@
               Last refresh: 
               <span x-text="data.fetchDate || 'Never'"></span>
               <template x-if="errors"><b> (Failed)</b></template>
+              <template x-if="loading">
+                <div class="loader mt-4" style="max-width: 250px;"></div>
+              </template>
             </div>
           </div>
         </template>
