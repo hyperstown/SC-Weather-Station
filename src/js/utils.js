@@ -12,3 +12,8 @@ export function setup(data, appName = 'app') {
     window.Alpine.data(appName, () => data)
   })
 }
+
+export function capitalize(str) {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}

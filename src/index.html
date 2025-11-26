@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -10,7 +11,7 @@
   <link rel="shortcut icon" href="favicon.svg" type="image/x-icon">
   <script type="module">
     import { ElementShifter } from "./js/shifter.js";
-    import { setup } from "./js/utils.js";
+    import { setup, capitalize } from "./js/utils.js";
 
     const DEFAULTS = {
       baseURL: "https://data.sensor.community/airrohr/v1/sensor",
@@ -19,6 +20,11 @@
       dustSensorId: "",
       environSensorId: "",
       movement: "normal",
+    }
+
+    const LOCAL_SERVER_DEFAULTS = {
+      dust: "/api/sensors/values?sensor=SDS011",
+      environ: "/api/sensors/values?sensor=BME280&parameter!=pressure at sea level"
     }
 
     const MOVEMENT_MAPPING = {
@@ -44,13 +50,13 @@
         return this.now.toLocaleTimeString('pl', { timeStyle: 'short' });
       },
       get date() {
-        return this.now.toLocaleDateString('en-us', { 
-          weekday: 'short', month: 'short', day: 'numeric' 
+        return this.now.toLocaleDateString('en-us', {
+          weekday: 'short', month: 'short', day: 'numeric'
         });
       },
       get settingsValid() {
         return Boolean(
-          (this.settings.dustSensorId && this.settings.environSensorId) || 
+          (this.settings.dustSensorId && this.settings.environSensorId) ||
           (this.settings.customDustURL && this.settings.customEnvironURL)
         )
       },
@@ -83,12 +89,15 @@
         this.$refs.dialog.classList.remove('visible');
       },
       resetSettings() {
-        this.settings = JSON.parse(localStorage.getItem("userSettings")) || {...DEFAULTS};
+        this.settings = JSON.parse(localStorage.getItem("userSettings")) || { ...DEFAULTS };
       },
       updateSettings() {
         localStorage.setItem("userSettings", JSON.stringify(this.settings));
         this.fetchSensorsData(true);
         this.closeSettingsDialog();
+      },
+      loadDefault(urlType) {
+        this.settings[`custom${capitalize(urlType)}URL`] = LOCAL_SERVER_DEFAULTS[urlType];
       },
       async fetchSensorsData(force = false) {
         if (this.loading) return;
@@ -97,14 +106,14 @@
         const lessThan5min = cachedData && (Date.now() - cachedData._timestamp < 5 * 60 * 1000);
         if (
           !force && (
-            this.$refs.dialog.open || 
-            !this.settingsValid || 
+            this.$refs.dialog.open ||
+            !this.settingsValid ||
             (cachedData && lessThan5min)
           )
         ) return;
 
         const url1 = this.settings.customDustURL ||
-         `${this.settings.baseURL}/${this.settings.dustSensorId}/`;
+          `${this.settings.baseURL}/${this.settings.dustSensorId}/`;
         const url2 = this.settings.customEnvironURL ||
           `${this.settings.baseURL}/${this.settings.environSensorId}/`;
 
@@ -150,8 +159,8 @@
       initShifter() {
         document.querySelectorAll(".shift").forEach((el) => {
           new ElementShifter(
-            el, 
-            this.getMaxOffset(el.dataset.shiftX), 
+            el,
+            this.getMaxOffset(el.dataset.shiftX),
             this.getMaxOffset(el.dataset.shiftY)
           );
         })
@@ -172,6 +181,7 @@
   </script>
   <script src="js/alpine.min.js" defer></script>
 </head>
+
 <body x-data="app">
   <!-- Data -->
   <div class="container d-flex flex-column justify-center" style="height: 100%">
@@ -193,7 +203,7 @@
       <div class="col">
         <div 
           class="clock-wrapper shift" 
-          data-shift-x="15"
+          data-shift-x="15" 
           data-shift-y="25" 
           style="min-height: 30vh;"
         >
@@ -202,8 +212,8 @@
         </div>
       </div>
       <div 
-        class="col shift"
-        data-shift-x="5"
+        class="col shift" 
+        data-shift-x="5" 
         data-shift-y="25"
       >
         <template x-if="!settingsValid">
@@ -219,23 +229,23 @@
             <table style="width: 100%;">
               <tr>
                 <td>PM 2.5:</td>
-                <td><span x-text="data.pm25 || '--'"></span> μg/m³</td>
+                <td><span x-text="data.pm25"></span> μg/m³</td>
               </tr>
               <tr>
                 <td>PM 10:</td>
-                <td><span x-text="data.pm10 || '--'"></span> μg/m³</td>
+                <td><span x-text="data.pm10"></span> μg/m³</td>
               </tr>
               <tr>
                 <td>Temperature:</td>
-                <td><span x-text="data.temp || '--'"></span> °C</td>
+                <td><span x-text="data.temp"></span> °C</td>
               </tr>
               <tr>
                 <td>Humidity:</td>
-                <td><span x-text="data.hum || '--'"></span> %</td>
+                <td><span x-text="data.hum"></span> %</td>
               </tr>
             </table>
             <div class="ml-1" style="font-size: medium;">
-              Last refresh: 
+              Last refresh:
               <span x-text="data.fetchDate || 'Never'"></span>
               <template x-if="errors"><b> (Failed)</b></template>
               <template x-if="loading">
@@ -249,10 +259,10 @@
   </div>
   <!-- Settings -->
   <dialog 
-    x-ref="dialog"
+    x-ref="dialog" 
     @cancel.prevent="closeSettingsDialog()"
     @transitionend="if (!$el.classList.contains('visible')) $el.close()"
-    @mousedown="mouseupOutside = isOutsideDialog($event)"
+    @mousedown="mouseupOutside = isOutsideDialog($event)" 
     @mouseup="onBackdropClick"
   >
     <div class="dialog-content">
@@ -274,14 +284,40 @@
           </div>
         </div>
       </div>
-      <div class="material-textfield dense my-3 mx-1">
-        <input placeholder=" " type="text" x-model="settings.customDustURL">
-        <label>Dust custom URL</label>
+      <div class="row">
+        <div class="col">
+          <div class="material-textfield dense my-3 ml-1 mr-3">
+            <input placeholder=" " type="text" x-model="settings.customDustURL">
+            <label>Dust custom URL</label>
+          </div>
+        </div>
+        <div class="col-1">
+          <div class="tooltip">
+            <button class="btn btn-icon my-3" @click="loadDefault('dust')">
+              <i class="bi bi-database-lock"></i>
+            </button>
+            <span class="tooltip-content">Load default</span>
+          </div>
+        </div>
       </div>
-      <div class="material-textfield dense my-4 mx-1">
-        <input placeholder=" " type="text" x-model="settings.customEnvironURL">
-        <label>Environment custom URL</label>
+      <div class="row">
+        <div class="col">
+          <div class="material-textfield dense my-4 ml-1 mr-3">
+            <input placeholder=" " type="text" x-model="settings.customEnvironURL">
+            <label>Environment custom URL</label>
+          </div>
+        </div>
+        <div class="col-1">
+          <div class="tooltip">
+            <button class="btn btn-icon my-4" @click="loadDefault('environ')">
+              <i class="bi bi-database-lock"></i>
+            </button>
+            <span class="tooltip-content">Load default</span>
+          </div>
+        </div>
       </div>
+
+
       <p>OLED movement distance:</p>
       <div class="material-radio-group d-flex flex-row justify-space-around">
         <label class="material-radio mr-3">
@@ -311,4 +347,5 @@
     </div>
   </dialog>
 </body>
+
 </html>

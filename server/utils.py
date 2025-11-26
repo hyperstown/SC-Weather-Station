@@ -11,7 +11,7 @@ def extract_numbers(value):
             .quantize(Decimal("0.00"), rounding=ROUND_HALF_UP)
         )
     except:
-        return value
+        return "-" if clear_value == "-" else value
 
 
 def dfilter(lst, **kwargs):
