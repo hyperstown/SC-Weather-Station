@@ -607,7 +607,7 @@ dialog.visible {
 .tooltip-content {
   position: absolute;
   bottom: 85%;
-  left: 50%;
+  left: 0;
   transform: translate(-50%, 8px) scale(0.92);
   background: #232323;
   color: #fff;

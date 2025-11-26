@@ -229,19 +229,19 @@
             <table style="width: 100%;">
               <tr>
                 <td>PM 2.5:</td>
-                <td><span x-text="data.pm25"></span> μg/m³</td>
+                <td><span x-text="data.pm25 ?? '--'"></span> μg/m³</td>
               </tr>
               <tr>
                 <td>PM 10:</td>
-                <td><span x-text="data.pm10"></span> μg/m³</td>
+                <td><span x-text="data.pm10 ?? '--'"></span> μg/m³</td>
               </tr>
               <tr>
                 <td>Temperature:</td>
-                <td><span x-text="data.temp"></span> °C</td>
+                <td><span x-text="data.temp ?? '--'"></span> °C</td>
               </tr>
               <tr>
                 <td>Humidity:</td>
-                <td><span x-text="data.hum"></span> %</td>
+                <td><span x-text="data.hum ?? '--'"></span> %</td>
               </tr>
             </table>
             <div class="ml-1" style="font-size: medium;">
@@ -286,7 +286,7 @@
       </div>
       <div class="row">
         <div class="col">
-          <div class="material-textfield dense my-3 ml-1 mr-3">
+          <div class="material-textfield dense my-3 ma-1 mr-3">
             <input placeholder=" " type="text" x-model="settings.customDustURL">
             <label>Dust custom URL</label>
           </div>
